@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">Tasker</string>
+    <string name="profile_title">Profile</string>
+    <string name="navigate_back">Back</string>
+    <string name="edit_profile_picture">Edit profile picture</string>
+    <string name="profile_picture">Profile picture</string>
+    <string name="account_settings">Account Settings</string>
+    <string name="app_settings">App Settings</string>
+    <string name="sync_data">Sync Data</string>
+    <string name="change_password">Change Password</string>
+    <string name="achievements">Achievements</string>
+    <string name="notification_settings">Notifications</string>
+    <string name="theme_settings">Theme</string>
+    <string name="logout">Logout</string>
+    <string name="total_tasks">Total Tasks</string>
+    <string name="completed">Completed</string>
+    <string name="streak_days">Day Streak</string>
+</resources>
