@@ -15,6 +15,9 @@ sealed class Screen(val route: String) {
         fun createRoute(taskId: Long? = null) =
             if (taskId != null) "progress?taskId=$taskId" else "progress"
     }
+    data object TaskProgress : Screen("task_progress/{taskId}") {
+        fun createRoute(taskId: Long): String = "task_progress/$taskId"
+    }
     data object Profile : Screen("profile")
     data object Achievements : Screen("achievements")
 }

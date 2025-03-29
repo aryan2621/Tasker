@@ -1,10 +1,11 @@
 package com.tasker.ui.screens.auth
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.AuthCredential
 import com.tasker.data.domain.*
-import com.tasker.data.model.User
+import com.tasker.service.GoogleAuthClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -13,7 +14,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class AuthViewModel : ViewModel(), KoinComponent {
-
     private val signInUseCase: SignInUseCase by inject()
     private val signUpUseCase: SignUpUseCase by inject()
     private val signInWithGoogleUseCase: SignInWithGoogleUseCase by inject()
@@ -26,6 +26,8 @@ class AuthViewModel : ViewModel(), KoinComponent {
     val uiState: StateFlow<AuthUiState> = _uiState
 
     val currentUser = getCurrentUserUseCase.execute()
+    private val googleAuthClient: GoogleAuthClient by inject()
+
 
     init {
         // Check if user is already logged in
@@ -37,6 +39,34 @@ class AuthViewModel : ViewModel(), KoinComponent {
                     isLoading = false,
                     isLoggedIn = isAuthenticated
                 )
+            }
+        }
+    }
+
+    fun handleGoogleSignInResult(intent: Intent) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            try {
+                val account = googleAuthClient.getCredential(intent)
+                account.onSuccess { googleAccount ->
+                    val credential = googleAuthClient.getFirebaseCredential(googleAccount)
+                    signInWithGoogle(credential)
+                }.onFailure { exception ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Google sign in failed: ${exception.message}"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Google sign in failed: ${e.message}"
+                    )
+                }
             }
         }
     }
@@ -70,7 +100,7 @@ class AuthViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun signInWithGoogle(credential: AuthCredential) {
+    private fun signInWithGoogle(credential: AuthCredential) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
@@ -106,6 +136,7 @@ class AuthViewModel : ViewModel(), KoinComponent {
     fun signOut() {
         viewModelScope.launch {
             signOutUseCase.execute()
+            googleAuthClient.signOut()
             _uiState.update { it.copy(isLoggedIn = false) }
         }
     }
@@ -123,6 +154,10 @@ class AuthViewModel : ViewModel(), KoinComponent {
                 "Email already in use."
             exception.message?.contains("password is too weak") == true ->
                 "Password is too weak."
+            exception.message?.contains("already registered with email/password") == true ->
+                "This email is already registered with email/password. Please sign in with your password."
+            exception.message?.contains("associated with a Google account") == true ->
+                "This email is associated with a Google account. Please sign in with Google."
             else -> exception.message ?: "An unknown error occurred."
         }
     }

@@ -28,4 +28,6 @@ val useCaseModule = module {
     factory { GetTasksUseCase(get()) }
     factory { GetTaskStatsUseCase(get()) }
     factory { SyncTasksUseCase(get()) }
+    factory { ActiveTaskUseCase(get()) }
+    factory { RunTaskUseCase(get()) }
 }

@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SocialLoginButton(
     icon: Int,
-    onClick: () -> Unit,
+    onClick:() -> Unit,
     color: Color,
     modifier: Modifier = Modifier
 ) {

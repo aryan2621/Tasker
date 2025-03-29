@@ -11,7 +11,18 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -19,8 +30,29 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,13 +66,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tasker.R
-import com.tasker.data.model.Task
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     onTaskClick: (Long) -> Unit,
-    onAddTaskClick: () -> Unit,
+    onCreateTask: () -> Unit, // New parameter for task creation navigation,
+    onRunTask: (Long) -> Unit
 ) {
     val context = LocalContext.current
     val viewModel: HomeViewModel = viewModel()
@@ -49,6 +81,7 @@ fun HomeScreen(
     val stats by viewModel.statsUiState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val currentFilter by viewModel.currentFilter.collectAsState()
+
 
     val permissionsToRequest = remember {
         mutableListOf<String>().apply {
@@ -157,17 +190,21 @@ fun HomeScreen(
                 )
             )
         },
+        // Add Floating Action Button for task creation
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAddTaskClick,
+                onClick = onCreateTask,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape,
-                modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
+                shape = CircleShape
             ) {
-                Icon(Icons.Default.Add, "Add Task")
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Create new task"
+                )
             }
-        }
+        },
+        floatingActionButtonPosition = FabPosition.End
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -176,9 +213,6 @@ fun HomeScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 24.dp)
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Stats Section
             Row(
                 modifier = Modifier
                     .fillMaxWidth(),
@@ -269,15 +303,19 @@ fun HomeScreen(
             } else {
                 // Task List
                 LazyColumn(
-                    contentPadding = PaddingValues(vertical = 8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp, horizontal = 0.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
+                    // Add bottom padding to avoid FAB overlapping with the last item
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(bottom = 72.dp)
                 ) {
                     items(tasks, key = { it.id }) { task ->
                         TaskItem(
                             task = task,
                             onTaskClick = { onTaskClick(task.id) },
                             onDeleteClick = { viewModel.deleteTask(task) },
+                            onRunNowClick = { onRunTask(task.id) },
                             modifier = Modifier
                                 .shadow(2.dp, RoundedCornerShape(12.dp))
                                 .animateItemPlacement()
@@ -288,6 +326,7 @@ fun HomeScreen(
         }
     }
 }
+
 @Composable
 fun FilterChipGroup(
     currentFilter: HomeViewModel.TaskFilter,

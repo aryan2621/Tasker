@@ -1,12 +1,15 @@
 package com.tasker.ui.screens.home
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tasker.data.domain.DeleteTaskUseCase
 import com.tasker.data.domain.GetTaskStatsUseCase
 import com.tasker.data.domain.GetTasksUseCase
+import com.tasker.data.domain.RunTaskUseCase
 import com.tasker.data.domain.SyncTasksUseCase
 import com.tasker.data.model.Task
+import com.tasker.data.model.TaskStats
 import com.tasker.data.repository.TaskRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +30,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val getTaskStatsUseCase: GetTaskStatsUseCase by inject()
     private val syncTasksUseCase: SyncTasksUseCase by inject()
     private val deleteTaskUseCase: DeleteTaskUseCase by inject()
+    private val runTaskUseCase: RunTaskUseCase by inject()
 
     enum class TaskFilter {
         ALL, PENDING, COMPLETED, TODAY
@@ -75,6 +79,11 @@ class HomeViewModel : ViewModel(), KoinComponent {
             }
         }
     }
+    fun runTaskNow(taskId: Long, context: Context) {
+        viewModelScope.launch {
+            runTaskUseCase.executeImmediately(taskId, context)
+        }
+    }
 
     init {
         viewModelScope.launch {
@@ -82,53 +91,3 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 }
-
-class GetTasksUseCase(
-    private val taskRepository: TaskRepository
-) {
-    fun execute(filterFlow: Flow<HomeViewModel.TaskFilter>): Flow<List<Task>> {
-        return combine(
-            taskRepository.getAllTasks(),
-            filterFlow
-        ) { tasks, filter ->
-            when (filter) {
-                HomeViewModel.TaskFilter.ALL -> tasks
-                HomeViewModel.TaskFilter.PENDING -> tasks.filter { !it.isCompleted }
-                HomeViewModel.TaskFilter.COMPLETED -> tasks.filter { it.isCompleted }
-                HomeViewModel.TaskFilter.TODAY -> {
-                    val today = Date()
-                    val startOfDay = Date(today.year, today.month, today.date, 0, 0, 0)
-                    val endOfDay = Date(today.year, today.month, today.date, 23, 59, 59)
-                    tasks.filter { it.reminderTime in startOfDay..endOfDay }
-                }
-            }
-        }
-    }
-}
-
-class GetTaskStatsUseCase(
-    private val taskRepository: TaskRepository
-) {
-    fun execute(): Flow<TaskStats> {
-        return taskRepository.getAllTasks()
-            .combine(taskRepository.getCompletedTasksCountForDay(Date())) { allTasks, completedToday ->
-                val pendingCount = allTasks.count { !it.isCompleted }
-                val completedCount = allTasks.count { it.isCompleted }
-                val totalCount = allTasks.size
-
-                TaskStats(
-                    pendingCount = pendingCount,
-                    completedCount = completedCount,
-                    totalCount = totalCount,
-                    completedToday = completedToday
-                )
-            }
-    }
-}
-
-data class TaskStats(
-    val pendingCount: Int,
-    val completedCount: Int,
-    val totalCount: Int,
-    val completedToday: Int
-)

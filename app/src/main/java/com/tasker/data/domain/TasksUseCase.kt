@@ -1,10 +1,10 @@
 package com.tasker.data.domain
 
 import com.tasker.data.model.Task
+import com.tasker.data.model.TaskStats
 import com.tasker.data.repository.FirebaseRepository
 import com.tasker.data.repository.TaskRepository
 import com.tasker.ui.screens.home.HomeViewModel.TaskFilter
-import com.tasker.ui.screens.home.TaskStats
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.util.Date

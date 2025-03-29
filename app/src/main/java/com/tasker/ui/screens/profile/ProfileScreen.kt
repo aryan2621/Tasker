@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tasker.R
 import com.tasker.data.model.UserStreak
+import com.tasker.data.sync.SyncState
 import com.tasker.ui.components.ButtonShape
+import com.tasker.ui.components.sync.SyncViewModel
 import com.tasker.ui.screens.auth.AuthViewModel
 import kotlinx.coroutines.flow.collectLatest
 
@@ -36,8 +38,12 @@ fun ProfileScreen(
     val uiState by authViewModel.uiState.collectAsState()
     var userEmail by remember { mutableStateOf("") }
     var userDisplayName by remember { mutableStateOf("") }
+    var showLogoutConfirmation by remember { mutableStateOf(false) } // Added for logout confirmation
 
-    // Collect user data
+    val syncViewModel: SyncViewModel = viewModel()
+    val syncState by syncViewModel.syncState.collectAsState()
+    val unsyncedItemsCount by syncViewModel.totalUnsyncedItems.collectAsState(initial = 0)
+
     LaunchedEffect(Unit) {
         authViewModel.currentUser.collectLatest { user ->
             userEmail = user?.email ?: ""
@@ -66,7 +72,7 @@ fun ProfileScreen(
                     ) {
                         Icon(
                             Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = "Navigate back", // Added for accessibility
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -88,7 +94,6 @@ fun ProfileScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // User Profile Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -106,7 +111,6 @@ fun ProfileScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box {
-                        // User avatar
                         Surface(
                             modifier = Modifier.size(100.dp),
                             shape = CircleShape,
@@ -120,8 +124,6 @@ fun ProfileScreen(
                                 )
                             }
                         }
-
-                        // Edit icon
                         IconButton(
                             onClick = { /* Handle edit profile */ },
                             modifier = Modifier
@@ -132,38 +134,29 @@ fun ProfileScreen(
                         ) {
                             Icon(
                                 Icons.Default.Edit,
-                                contentDescription = "Edit profile",
+                                contentDescription = "Edit profile", // Added for accessibility
                                 tint = MaterialTheme.colorScheme.onSecondary,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
                     }
-
                     Spacer(modifier = Modifier.height(24.dp))
-
-                    // User info section
                     Text(
                         text = "Personal info",
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.align(Alignment.Start)
                     )
-
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    // Name Row
                     ProfileInfoRow(
                         icon = R.drawable.ic_person,
                         label = "Name",
                         value = userDisplayName.ifEmpty { "User" }
                     )
-
                     Divider(
                         modifier = Modifier.padding(vertical = 12.dp),
                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                     )
-
-                    // Email Row
                     ProfileInfoRow(
                         icon = R.drawable.ic_email,
                         label = "E-mail",
@@ -174,7 +167,11 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Account Settings Title
+            // Streak Card
+            StreakCard(streak = null) // Replace null with actual streak data from ViewModel
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             Text(
                 text = "Account settings",
                 style = MaterialTheme.typography.titleLarge,
@@ -185,25 +182,78 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Setting Options - Using cards with Neobank style
-            SettingOptionCard(
-                icon = R.drawable.ic_refresh,
-                title = "Sync Data",
-                onClick = { /* Implement manual sync */ }
-            )
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .clickable { syncViewModel.syncNow() },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = when (syncState) {
+                            is SyncState.Syncing -> painterResource(id = R.drawable.ic_cloud_sync)
+                            is SyncState.Error -> painterResource(id = R.drawable.ic_error)
+                            else -> painterResource(id = R.drawable.ic_cloud_done)
+                        },
+                        contentDescription = "Sync status", // Added for accessibility
+                        tint = when (syncState) {
+                            is SyncState.Error -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = "Sync Data",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (unsyncedItemsCount > 0) {
+                            Text(
+                                text = "$unsyncedItemsCount item${if (unsyncedItemsCount > 1) "s" else ""} waiting to sync",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = when (syncState) {
+                            is SyncState.Syncing -> "Syncing..."
+                            is SyncState.Error -> "Offline"
+                            is SyncState.Success -> "Synced"
+                            else -> "Tap to sync"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when (syncState) {
+                            is SyncState.Error -> MaterialTheme.colorScheme.error
+                            is SyncState.Success -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+            }
 
             SettingOptionCard(
                 icon = R.drawable.ic_achievement,
                 title = "View Achievements",
                 onClick = onNavigateToAchievements
             )
-
             SettingOptionCard(
                 icon = R.drawable.ic_lock,
                 title = "Change Password",
                 onClick = { /* Handle password change */ }
             )
-
             SettingOptionCard(
                 icon = R.drawable.ic_delete,
                 title = "Delete Account",
@@ -213,12 +263,8 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Logout button
             Button(
-                onClick = {
-                    authViewModel.signOut()
-                    onLogout()
-                },
+                onClick = { showLogoutConfirmation = true }, // Show confirmation dialog
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -234,7 +280,6 @@ fun ProfileScreen(
                 )
             }
 
-            // Error message
             if (uiState.error != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -245,6 +290,31 @@ fun ProfileScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // Logout Confirmation Dialog
+        if (showLogoutConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showLogoutConfirmation = false },
+                title = { Text("Log Out") },
+                text = { Text("Are you sure you want to log out?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            authViewModel.signOut()
+                            onLogout()
+                            showLogoutConfirmation = false
+                        }
+                    ) {
+                        Text("Yes")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLogoutConfirmation = false }) {
+                        Text("No")
+                    }
+                }
+            )
         }
     }
 }
@@ -261,20 +331,17 @@ fun ProfileInfoRow(
     ) {
         Icon(
             painter = painterResource(id = icon),
-            contentDescription = null,
+            contentDescription = "$label icon", // Added for accessibility
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(24.dp)
         )
-
         Spacer(modifier = Modifier.width(16.dp))
-
         Column {
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
@@ -309,26 +376,22 @@ fun SettingOptionCard(
         ) {
             Icon(
                 painter = painterResource(id = icon),
-                contentDescription = null,
+                contentDescription = "$title option", // Added for accessibility
                 tint = if (isDestructive) MaterialTheme.colorScheme.error
                 else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp)
             )
-
             Spacer(modifier = Modifier.width(16.dp))
-
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (isDestructive) MaterialTheme.colorScheme.error
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
-
             Spacer(modifier = Modifier.weight(1f))
-
             Icon(
                 painter = painterResource(id = R.drawable.ic_chevron_right),
-                contentDescription = null,
+                contentDescription = "Navigate to $title", // Added for accessibility
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.size(20.dp)
             )
@@ -361,21 +424,17 @@ fun StreakCard(streak: UserStreak?) {
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_streak),
-                    contentDescription = null,
+                    contentDescription = "Streak icon", // Added for accessibility
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(32.dp)
                 )
-
                 Spacer(modifier = Modifier.width(12.dp))
-
                 Text(
                     text = "${streak?.currentStreak ?: 0} days",
                     style = MaterialTheme.typography.headlineMedium.copy(
@@ -384,9 +443,7 @@ fun StreakCard(streak: UserStreak?) {
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
             Text(
                 text = "Longest Streak: ${streak?.longestStreak ?: 0} days",
                 style = MaterialTheme.typography.bodyLarge,

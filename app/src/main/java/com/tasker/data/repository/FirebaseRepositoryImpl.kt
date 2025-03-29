@@ -5,6 +5,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.tasker.data.model.Achievement
 import com.tasker.data.model.AchievementType
+import com.tasker.data.model.SyncStatus
 import com.tasker.data.model.Task
 import com.tasker.data.model.TaskProgress
 import com.tasker.data.model.UserStreak
@@ -142,32 +143,6 @@ class FirebaseRepositoryImpl : FirebaseRepository {
         )
     }
 
-    private fun mapDocumentToTask(document: com.google.firebase.firestore.DocumentSnapshot): Task? {
-        return try {
-            val data = document.data ?: return null
-            Task(
-                id = (data["id"] as Long),
-                title = data["title"] as String,
-                userId = data["userId"] as String,
-                description = data["description"] as String,
-                category = enumValueOf(data["category"] as String),
-                priority = enumValueOf(data["priority"] as String),
-                recurrence = enumValueOf(data["recurrence"] as String),
-                reminderTime = Date(data["reminderTime"] as Long),
-                durationMinutes = (data["durationMinutes"] as Long).toInt(),
-                isCompleted = data["isCompleted"] as Boolean,
-                isAccepted = data["isAccepted"] as Boolean,
-                isRejected = data["isRejected"] as Boolean,
-                createdAt = Date(data["createdAt"] as Long),
-                updatedAt = Date(data["updatedAt"] as Long),
-                completedAt = if (data["completedAt"] as Long > 0) Date(data["completedAt"] as Long) else null,
-                isSynced = true
-            )
-        } catch (e: Exception) {
-            null
-        }
-    }
-
     private fun mapProgressToMap(progress: TaskProgress, userId: String): Map<String, Any> {
         return mapOf(
             "id" to progress.id,
@@ -181,23 +156,6 @@ class FirebaseRepositoryImpl : FirebaseRepository {
         )
     }
 
-    private fun mapDocumentToProgress(document: com.google.firebase.firestore.DocumentSnapshot): TaskProgress? {
-        return try {
-            val data = document.data ?: return null
-            TaskProgress(
-                id = (data["id"] as Long),
-                taskId = (data["taskId"] as Long),
-                date = Date(data["date"] as Long),
-                isCompleted = data["isCompleted"] as Boolean,
-                startTime = data["startTime"] as Long?,
-                endTime = data["endTime"] as Long?,
-                durationCompleted = (data["durationCompleted"] as Long?)?.toInt(),
-                isSynced = true
-            )
-        } catch (e: Exception) {
-            null
-        }
-    }
     override suspend fun deleteTask(taskId: Long): Boolean {
         val userId = getCurrentUserId() ?: return false
 
@@ -314,24 +272,6 @@ class FirebaseRepositoryImpl : FirebaseRepository {
         )
     }
 
-    private fun mapDocumentToAchievement(document: com.google.firebase.firestore.DocumentSnapshot): Achievement? {
-        return try {
-            val data = document.data ?: return null
-            Achievement(
-                id = (data["id"] as Long),
-                userId = data["userId"] as String,
-                type = AchievementType.valueOf(data["type"] as String),
-                title = data["title"] as String,
-                description = data["description"] as String,
-                earnedAt = Date(data["earnedAt"] as Long),
-                isSynced = true
-            )
-        } catch (e: Exception) {
-            Log.e(tag, "Error mapping document to achievement: ${e.message}", e)
-            null
-        }
-    }
-
     private fun mapStreakToMap(streak: UserStreak): Map<String, Any> {
         val map = mutableMapOf<String, Any>(
             "userId" to streak.userId,
@@ -345,6 +285,86 @@ class FirebaseRepositoryImpl : FirebaseRepository {
         }
 
         return map
+    }
+
+    override suspend fun deleteTaskProgress(progressId: Long): Boolean {
+        val userId = getCurrentUserId() ?: return false
+
+        return try {
+            firestore.collection(progressCollection)
+                .document("${userId}_${progressId}")
+                .delete()
+                .await()
+
+            true
+        } catch (e: Exception) {
+            // Handle exception
+            Log.e(tag, "Error deleting progress: ${e.message}", e)
+            false
+        }
+    }
+    private fun mapDocumentToTask(document: com.google.firebase.firestore.DocumentSnapshot): Task? {
+        return try {
+            val data = document.data ?: return null
+            Task(
+                id = (data["id"] as Long),
+                title = data["title"] as String,
+                userId = data["userId"] as String,
+                description = data["description"] as String,
+                category = enumValueOf(data["category"] as String),
+                priority = enumValueOf(data["priority"] as String),
+                recurrence = enumValueOf(data["recurrence"] as String),
+                reminderTime = Date(data["reminderTime"] as Long),
+                durationMinutes = (data["durationMinutes"] as Long).toInt(),
+                isCompleted = data["isCompleted"] as Boolean,
+                isAccepted = data["isAccepted"] as Boolean,
+                isRejected = data["isRejected"] as Boolean,
+                createdAt = Date(data["createdAt"] as Long),
+                updatedAt = Date(data["updatedAt"] as Long),
+                completedAt = if (data["completedAt"] as Long > 0) Date(data["completedAt"] as Long) else null,
+                syncStatus = SyncStatus.SYNCED, // Use SyncStatus instead of isSynced
+                serverUpdatedAt = Date(data["updatedAt"] as Long)
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun mapDocumentToProgress(document: com.google.firebase.firestore.DocumentSnapshot): TaskProgress? {
+        return try {
+            val data = document.data ?: return null
+            TaskProgress(
+                id = (data["id"] as Long),
+                taskId = (data["taskId"] as Long),
+                date = Date(data["date"] as Long),
+                isCompleted = data["isCompleted"] as Boolean,
+                startTime = data["startTime"] as Long?,
+                endTime = data["endTime"] as Long?,
+                durationCompleted = (data["durationCompleted"] as Long?)?.toInt(),
+                syncStatus = SyncStatus.SYNCED, // Use SyncStatus instead of isSynced
+                serverUpdatedAt = Date(data["date"] as Long)
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun mapDocumentToAchievement(document: com.google.firebase.firestore.DocumentSnapshot): Achievement? {
+        return try {
+            val data = document.data ?: return null
+            Achievement(
+                id = (data["id"] as Long),
+                userId = data["userId"] as String,
+                type = AchievementType.valueOf(data["type"] as String),
+                title = data["title"] as String,
+                description = data["description"] as String,
+                earnedAt = Date(data["earnedAt"] as Long),
+                syncStatus = SyncStatus.SYNCED // Use SyncStatus instead of isSynced
+            )
+        } catch (e: Exception) {
+            Log.e(tag, "Error mapping document to achievement: ${e.message}", e)
+            null
+        }
     }
 
     private fun mapDocumentToStreak(document: com.google.firebase.firestore.DocumentSnapshot): UserStreak? {
@@ -362,7 +382,7 @@ class FirebaseRepositoryImpl : FirebaseRepository {
                 currentStreak = (data["currentStreak"] as Long).toInt(),
                 longestStreak = (data["longestStreak"] as Long).toInt(),
                 lastCompletedDate = lastCompletedDate,
-                isSynced = true
+                syncStatus = SyncStatus.SYNCED // Use SyncStatus instead of isSynced
             )
         } catch (e: Exception) {
             Log.e(tag, "Error mapping document to streak: ${e.message}", e)

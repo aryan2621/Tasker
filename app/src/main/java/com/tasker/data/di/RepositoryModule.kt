@@ -16,8 +16,8 @@ import org.koin.dsl.module
 val repositoryModule = module {
     single { StreakManager(get(), get(), get(), get(), get()) }
     single<FirebaseRepository> { FirebaseRepositoryImpl() }
-    single<TaskRepository> { TaskRepositoryImpl(get(), get(), get(),get(),get() ) }
+    single<TaskRepository> { TaskRepositoryImpl(get(), get(), get(),get(),get(),get() ) }
     single<AuthRepository> { AuthRepositoryImpl() }
-    single<AchievementRepository> { AchievementRepositoryImpl(get(), get(), get()) }
-    single<StreakRepository> { StreakRepositoryImpl(get(), get()) }
+    single<AchievementRepository> { AchievementRepositoryImpl(get(), get(), get(), get()) }
+    single<StreakRepository> { StreakRepositoryImpl(get(), get(), get()) }
 }

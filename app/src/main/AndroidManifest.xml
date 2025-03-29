@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -39,11 +40,23 @@
             android:name=".service.TimerService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <service
+            android:name=".service.MusicService"
+            android:exported="false" />
         <receiver
             android:name=".service.BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".service.TaskNotificationReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.tasker.ACTION_PAUSE_TASK" />
+                <action android:name="com.tasker.ACTION_RESUME_TASK" />
+                <action android:name="com.tasker.ACTION_COMPLETE_TASK" />
             </intent-filter>
         </receiver>
     </application>

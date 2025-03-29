@@ -1,11 +1,13 @@
 package com.tasker.data.repository
 
+import com.tasker.data.model.SyncStatus
 import com.tasker.data.model.Task
 import com.tasker.data.model.TaskProgress
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
 
 interface TaskRepository {
+    // Existing methods
     suspend fun insertTask(task: Task): Long
     suspend fun updateTask(task: Task)
     suspend fun deleteTask(task: Task)
@@ -27,4 +29,17 @@ interface TaskRepository {
     suspend fun syncProgressData(): Boolean
     suspend fun getUnsyncedProgress(): List<TaskProgress>
     suspend fun markProgressAsSynced(progressId: Long)
+
+    // New methods for enhanced offline capabilities
+    suspend fun markTaskSynced(taskId: Long, serverUpdatedAt: Date?)
+    suspend fun markTaskLocallyDeleted(taskId: Long)
+    suspend fun getPendingSyncTasks(): List<Task>
+    suspend fun getPendingDeleteTasks(): List<Task>
+    suspend fun getConflictTasks(): List<Task>
+    suspend fun resolveConflict(localTask: Task, serverTask: Task): Task
+    suspend fun cleanupDeletedTasks()
+    suspend fun logSyncError(taskId: Long, error: String)
+    suspend fun syncById(taskId: Long): Boolean
+    suspend fun resyncFailedTasks(): Boolean
+    suspend fun getSyncStatus(): Flow<Map<SyncStatus, Int>>
 }

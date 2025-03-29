@@ -2,12 +2,16 @@ package com.tasker.data.repository
 
 import com.tasker.data.db.AchievementDao
 import com.tasker.data.model.Achievement
+import com.tasker.data.model.SyncStatus
+import com.tasker.util.NetworkConnectivityObserver
 import kotlinx.coroutines.flow.Flow
+import java.util.Date
 
 class AchievementRepositoryImpl(
     private val achievementDao: AchievementDao,
     private val authRepository: AuthRepository,
-    private val firebaseRepository: FirebaseRepository
+    private val firebaseRepository: FirebaseRepository,
+    private val networkConnectivityObserver: NetworkConnectivityObserver
 ) : AchievementRepository {
 
     override suspend fun getAchievementsForUser(userId: String): Flow<List<Achievement>> {
@@ -27,29 +31,66 @@ class AchievementRepositoryImpl(
     }
 
     override suspend fun markAchievementAsSynced(achievementId: Long) {
-        achievementDao.markAchievementAsSynced(achievementId)
+        achievementDao.markAchievementSynced(
+            achievementId = achievementId,
+            status = SyncStatus.SYNCED,
+            lastSyncAttempt = Date(),
+            serverTime = Date()
+        )
     }
 
     override suspend fun getUnsyncedAchievements(): List<Achievement> {
-        return achievementDao.getUnsyncedAchievements()
+        return achievementDao.getAchievementsByStatus(SyncStatus.PENDING_UPLOAD)
     }
 
     override suspend fun syncAchievements(): Boolean {
         try {
             val userId = authRepository.getCurrentUserId() ?: return false
 
+            // Check network connectivity first (assuming you have the observer injected)
+            if (!networkConnectivityObserver.isConnected()) {
+                return false
+            }
+
+            // Handle pending uploads
             val unsyncedAchievements = getUnsyncedAchievements()
             if (unsyncedAchievements.isNotEmpty()) {
-                firebaseRepository.syncAchievements(unsyncedAchievements)
+                val syncedAchievements = firebaseRepository.syncAchievements(unsyncedAchievements)
 
-                unsyncedAchievements.forEach { achievement ->
-                    markAchievementAsSynced(achievement.id)
+                syncedAchievements.forEach { achievement ->
+                    achievementDao.markAchievementSynced(
+                        achievementId = achievement.id,
+                        status = SyncStatus.SYNCED,
+                        lastSyncAttempt = Date(),
+                        serverTime = achievement.earnedAt
+                    )
                 }
             }
 
+            // Fetch and merge remote achievements
             val remoteAchievements = firebaseRepository.fetchUserAchievements()
-            remoteAchievements.forEach { achievement ->
-                insertAchievement(achievement)
+            for (remoteAchievement in remoteAchievements) {
+                val localAchievement = achievementDao.getAchievementById(remoteAchievement.id)
+
+                if (localAchievement == null) {
+                    // New remote achievement, insert locally
+                    val localCopy = remoteAchievement.copy(
+                        syncStatus = SyncStatus.SYNCED,
+                        serverUpdatedAt = remoteAchievement.earnedAt,
+                        lastSyncAttempt = Date()
+                    )
+                    achievementDao.insertAchievement(localCopy)
+                } else if (localAchievement.syncStatus == SyncStatus.SYNCED) {
+                    // If local is synced, use the most recent
+                    if (localAchievement.serverUpdatedAt?.before(remoteAchievement.earnedAt) == true) {
+                        achievementDao.insertAchievement(remoteAchievement.copy(
+                            syncStatus = SyncStatus.SYNCED,
+                            serverUpdatedAt = remoteAchievement.earnedAt,
+                            lastSyncAttempt = Date()
+                        ))
+                    }
+                }
+                // No else needed - local changes that are pending should be preserved
             }
 
             return true

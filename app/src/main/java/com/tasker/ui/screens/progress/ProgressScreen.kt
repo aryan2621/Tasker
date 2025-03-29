@@ -1,45 +1,18 @@
 package com.tasker.ui.screens.progress
 
-import StatCard
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,7 +23,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -62,50 +38,40 @@ import com.tasker.data.model.DateRangeType
 import com.tasker.data.model.TaskCategory
 import com.tasker.data.model.TaskPriority
 import com.tasker.data.model.TaskProgress
-import com.tasker.ui.theme.CustomCategoryColor
-import com.tasker.ui.theme.HealthCategoryColor
-import com.tasker.ui.theme.HighPriorityColor
-import com.tasker.ui.theme.LowPriorityColor
-import com.tasker.ui.theme.MediumPriorityColor
-import com.tasker.ui.theme.PersonalCategoryColor
-import com.tasker.ui.theme.StudyCategoryColor
-import com.tasker.ui.theme.WorkCategoryColor
+import com.tasker.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProgressScreen(
-    taskId: Long? = null,
     onBack: () -> Unit
 ) {
     val viewModel: ProgressViewModel = viewModel()
     val progressData by viewModel.progressData.collectAsState()
     val dateRangeType by viewModel.dateRangeType.collectAsState()
-    val selectedTask by viewModel.selectedTask.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-
-    // Set the selected task ID if provided
-    LaunchedEffect(taskId) {
-        viewModel.setSelectedTaskId(taskId)
-    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(
+                        horizontalAlignment = Alignment.Start,
+                        verticalArrangement = Arrangement.Center
+                    ) {
                         Text(
-                            text = if (selectedTask != null)
-                                "${selectedTask!!.title} Progress"
-                            else
-                                "Progress Overview",
+                            text = "Progress Overview",
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold
                             ),
                             color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "Your productivity statistics",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                         )
                     }
                 },
@@ -118,7 +84,7 @@ fun ProgressScreen(
                     ) {
                         Icon(
                             Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = "Navigate back",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -150,8 +116,114 @@ fun ProgressScreen(
                 ) {
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Date range selector - only show for overall progress
-                    if (selectedTask == null) {
+                    // Time Period Selection Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(16.dp)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = "Time Period",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.semantics { contentDescription = "Select time period for progress" }
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            SingleChoiceSegmentedButtonRow(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                SegmentedButton(
+                                    selected = dateRangeType == DateRangeType.DAY,
+                                    onClick = { viewModel.setDateRangeType(DateRangeType.DAY) },
+                                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                                    colors = SegmentedButtonDefaults.colors(
+                                        activeContainerColor = MaterialTheme.colorScheme.primary,
+                                        activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                                        inactiveContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) { Text("Day") }
+                                SegmentedButton(
+                                    selected = dateRangeType == DateRangeType.WEEK,
+                                    onClick = { viewModel.setDateRangeType(DateRangeType.WEEK) },
+                                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                                    colors = SegmentedButtonDefaults.colors(
+                                        activeContainerColor = MaterialTheme.colorScheme.primary,
+                                        activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                                        inactiveContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) { Text("Week") }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Task Completion Rate Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(16.dp)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Task Completion Rate",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(180.dp)
+                                    .padding(8.dp)
+                            ) {
+                                CircleProgressIndicator(
+                                    progress = progressData.taskCompletionRate / 100f,
+                                    backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    progressColor = MaterialTheme.colorScheme.primary
+                                )
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "${progressData.taskCompletionRate.toInt()}%",
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Completed",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Category Distribution Card
+                    if (progressData.categoryCounts.isNotEmpty()) {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -165,121 +237,20 @@ fun ProgressScreen(
                                 modifier = Modifier.padding(16.dp)
                             ) {
                                 Text(
-                                    text = "Time Period",
+                                    text = "Tasks by Category",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
-
                                 Spacer(modifier = Modifier.height(16.dp))
-
-                                SingleChoiceSegmentedButtonRow(
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    SegmentedButton(
-                                        selected = dateRangeType == DateRangeType.DAY,
-                                        onClick = { viewModel.setDateRangeType(DateRangeType.DAY) },
-                                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 4),
-                                        colors = SegmentedButtonDefaults.colors(
-                                            activeContainerColor = MaterialTheme.colorScheme.primary,
-                                            activeContentColor = MaterialTheme.colorScheme.onPrimary,
-                                            inactiveContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    ) {
-                                        Text("Day")
-                                    }
-                                    SegmentedButton(
-                                        selected = dateRangeType == DateRangeType.WEEK,
-                                        onClick = { viewModel.setDateRangeType(DateRangeType.WEEK) },
-                                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 4),
-                                        colors = SegmentedButtonDefaults.colors(
-                                            activeContainerColor = MaterialTheme.colorScheme.primary,
-                                            activeContentColor = MaterialTheme.colorScheme.onPrimary,
-                                            inactiveContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    ) {
-                                        Text("Week")
-                                    }
-                                    SegmentedButton(
-                                        selected = dateRangeType == DateRangeType.MONTH,
-                                        onClick = { viewModel.setDateRangeType(DateRangeType.MONTH) },
-                                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 4),
-                                        colors = SegmentedButtonDefaults.colors(
-                                            activeContainerColor = MaterialTheme.colorScheme.primary,
-                                            activeContentColor = MaterialTheme.colorScheme.onPrimary,
-                                            inactiveContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    ) {
-                                        Text("Month")
-                                    }
-                                    SegmentedButton(
-                                        selected = dateRangeType == DateRangeType.YEAR,
-                                        onClick = { viewModel.setDateRangeType(DateRangeType.YEAR) },
-                                        shape = SegmentedButtonDefaults.itemShape(index = 3, count = 4),
-                                        colors = SegmentedButtonDefaults.colors(
-                                            activeContainerColor = MaterialTheme.colorScheme.primary,
-                                            activeContentColor = MaterialTheme.colorScheme.onPrimary,
-                                            inactiveContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    ) {
-                                        Text("Year")
-                                    }
-                                }
+                                CategoryDistribution(categoryCounts = progressData.categoryCounts)
                             }
                         }
-
                         Spacer(modifier = Modifier.height(24.dp))
                     }
 
-                    if (selectedTask != null && progressData.specificTaskProgress != null) {
-                        val specificProgress = progressData.specificTaskProgress!!
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .shadow(4.dp, RoundedCornerShape(16.dp)),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                StatCard(
-                                    title = "Completed Sessions",
-                                    value = "${specificProgress.completedSessions}",
-                                    modifier = Modifier.padding(16.dp),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .shadow(4.dp, RoundedCornerShape(16.dp)),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                StatCard(
-                                    title = "Total Duration",
-                                    value = "${specificProgress.totalDuration} min",
-                                    modifier = Modifier.padding(16.dp),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Progress history
+                    // Priority Distribution Card
+                    if (progressData.priorityCounts.isNotEmpty()) {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -293,33 +264,20 @@ fun ProgressScreen(
                                 modifier = Modifier.padding(16.dp)
                             ) {
                                 Text(
-                                    text = "Progress History",
+                                    text = "Tasks by Priority",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
-
                                 Spacer(modifier = Modifier.height(16.dp))
-
-                                // List of progress entries
-                                specificProgress.progressList.takeIf { it.isNotEmpty() }?.forEach { progress ->
-                                    ProgressHistoryItem(progress)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                } ?: run {
-                                    Text(
-                                        text = "No progress data available for this task.",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
+                                PriorityDistribution(priorityCounts = progressData.priorityCounts)
                             }
                         }
-                    } else {
-                        // Overall progress
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
 
-                        // Task completion rate
+                    // Daily Completion Stats Card
+                    if (progressData.dailyStats.isNotEmpty()) {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -330,149 +288,25 @@ fun ProgressScreen(
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                modifier = Modifier.padding(16.dp)
                             ) {
                                 Text(
-                                    text = "Task Completion Rate",
+                                    text = "Daily Completion Stats",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.semantics { contentDescription = "Daily task completion statistics" }
                                 )
-
-                                Spacer(modifier = Modifier.height(24.dp))
-
-                                // Circle progress indicator
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(180.dp)
-                                        .padding(8.dp)
-                                ) {
-                                    CircleProgressIndicator(
-                                        progress = progressData.taskCompletionRate / 100f,
-                                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
-                                        progressColor = MaterialTheme.colorScheme.primary
-                                    )
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text(
-                                            text = "${progressData.taskCompletionRate.toInt()}%",
-                                            style = MaterialTheme.typography.headlineLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-
-                                        Text(
-                                            text = "Completed",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
+                                BarChart(
+                                    dailyStats = progressData.dailyStats,
+                                    axisColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                    barColor = MaterialTheme.colorScheme.primary,
+                                    dateRangeType = dateRangeType
+                                )
                             }
                         }
-
                         Spacer(modifier = Modifier.height(24.dp))
-
-                        if (progressData.categoryCounts.isNotEmpty()) {
-                            // Task categories distribution
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .shadow(4.dp, RoundedCornerShape(16.dp)),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Tasks by Category",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    CategoryDistribution(categoryCounts = progressData.categoryCounts)
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(24.dp))
-                        }
-
-                        if (progressData.priorityCounts.isNotEmpty()) {
-                            // Task priority distribution
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .shadow(4.dp, RoundedCornerShape(16.dp)),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Tasks by Priority",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    PriorityDistribution(priorityCounts = progressData.priorityCounts)
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(24.dp))
-                        }
-
-                        // Daily stats
-                        if (progressData.dailyStats.isNotEmpty()) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .shadow(4.dp, RoundedCornerShape(16.dp)),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Daily Completion Stats",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    BarChart(
-                                        dailyStats = progressData.dailyStats,
-                                        axisColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                                        barColor = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(24.dp))
-                        }
                     }
                 }
             }
@@ -515,7 +349,6 @@ fun ProgressHistoryItem(progress: TaskProgress) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
@@ -535,22 +368,18 @@ fun ProgressHistoryItem(progress: TaskProgress) {
                     )
                 }
             }
-
             Spacer(modifier = Modifier.height(8.dp))
-
             if (progress.startTime != null && progress.endTime != null) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_timer),
-                        contentDescription = null,
+                        contentDescription = "Duration icon", // Added for accessibility
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
-
                     Spacer(modifier = Modifier.width(4.dp))
-
                     val durationMinutes = (progress.endTime - progress.startTime) / (60 * 1000)
                     Text(
                         text = "Duration: ${progress.durationCompleted ?: durationMinutes} minutes",
@@ -558,21 +387,17 @@ fun ProgressHistoryItem(progress: TaskProgress) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-
                 Spacer(modifier = Modifier.height(4.dp))
-
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_schedule),
-                        contentDescription = null,
+                        contentDescription = "Time icon", // Added for accessibility
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
-
                     Spacer(modifier = Modifier.width(4.dp))
-
                     Text(
                         text = "Time: ${timeFormat.format(Date(progress.startTime))} - ${timeFormat.format(Date(progress.endTime))}",
                         style = MaterialTheme.typography.bodyMedium,
@@ -607,27 +432,20 @@ fun CategoryDistribution(categoryCounts: Map<TaskCategory, Int>) {
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Category color indicator
                 Box(
                     modifier = Modifier
                         .size(12.dp)
                         .clip(CircleShape)
                         .background(color)
                 )
-
                 Spacer(modifier = Modifier.width(8.dp))
-
-                // Category name
                 Text(
                     text = category.name.lowercase().replaceFirstChar { it.uppercase() },
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.width(80.dp),
                     color = MaterialTheme.colorScheme.onSurface
                 )
-
                 Spacer(modifier = Modifier.width(8.dp))
-
-                // Progress bar
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -642,10 +460,7 @@ fun CategoryDistribution(categoryCounts: Map<TaskCategory, Int>) {
                             .background(color)
                     )
                 }
-
                 Spacer(modifier = Modifier.width(8.dp))
-
-                // Percentage and count
                 Text(
                     text = "${percentage.toInt()}% ($count)",
                     style = MaterialTheme.typography.bodySmall,
@@ -679,27 +494,20 @@ fun PriorityDistribution(priorityCounts: Map<TaskPriority, Int>) {
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Priority color indicator
                 Box(
                     modifier = Modifier
                         .size(12.dp)
                         .clip(CircleShape)
                         .background(color)
                 )
-
                 Spacer(modifier = Modifier.width(8.dp))
-
-                // Priority name
                 Text(
                     text = priority.name.lowercase().replaceFirstChar { it.uppercase() },
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.width(80.dp),
                     color = MaterialTheme.colorScheme.onSurface
                 )
-
                 Spacer(modifier = Modifier.width(8.dp))
-
-                // Progress bar
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -714,10 +522,7 @@ fun PriorityDistribution(priorityCounts: Map<TaskPriority, Int>) {
                             .background(color)
                     )
                 }
-
                 Spacer(modifier = Modifier.width(8.dp))
-
-                // Percentage and count
                 Text(
                     text = "${percentage.toInt()}% ($count)",
                     style = MaterialTheme.typography.bodySmall,
@@ -734,9 +539,16 @@ fun PriorityDistribution(priorityCounts: Map<TaskPriority, Int>) {
 fun BarChart(
     dailyStats: List<DailyStat>,
     axisColor: Color,
-    barColor: Color
+    barColor: Color,
+    dateRangeType: DateRangeType = DateRangeType.WEEK
 ) {
-    val dateFormat = SimpleDateFormat("MM/dd", Locale.getDefault())
+    // Use appropriate date format based on the range type
+    val dateFormat = when (dateRangeType) {
+        DateRangeType.DAY -> SimpleDateFormat("HH:mm", Locale.getDefault()) // Hours for day view
+        DateRangeType.WEEK -> SimpleDateFormat("EEE", Locale.getDefault()) // Day of week for week view
+        else -> SimpleDateFormat("MM/dd", Locale.getDefault()) // Default format
+    }
+
     val maxCompletedCount = dailyStats.maxOfOrNull { it.completedCount } ?: 1
 
     Column(
@@ -750,19 +562,25 @@ fun BarChart(
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-            // Y-axis line
             Canvas(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            val barWidth = size.width / dailyStats.size
+                            val index = (offset.x / barWidth).toInt().coerceIn(0, dailyStats.size - 1)
+                            val stat = dailyStats[index]
+                            println("Tapped on ${dateFormat.format(stat.date)}: ${stat.completedCount}")
+                        }
+                    }
             ) {
-                // Draw Y-axis line
+                // Draw axes
                 drawLine(
                     color = axisColor,
                     start = Offset(0f, 0f),
                     end = Offset(0f, size.height),
                     strokeWidth = 1.dp.toPx()
                 )
-
-                // Draw X-axis line
                 drawLine(
                     color = axisColor,
                     start = Offset(0f, size.height),
@@ -770,16 +588,28 @@ fun BarChart(
                     strokeWidth = 1.dp.toPx()
                 )
 
-                // Draw bars
+                // Calculate bar width based on available space and number of items
                 val barWidth = size.width / dailyStats.size
 
+                // Draw grid lines
+                val gridLines = 3
+                for (i in 1..gridLines) {
+                    val y = size.height * (1 - i.toFloat() / gridLines)
+                    drawLine(
+                        color = axisColor.copy(alpha = 0.2f),
+                        start = Offset(0f, y),
+                        end = Offset(size.width, y),
+                        strokeWidth = 0.5.dp.toPx()
+                    )
+                }
+
+                // Draw bars
                 dailyStats.forEachIndexed { index, stat ->
                     val normalizedHeight = if (maxCompletedCount > 0) {
                         (stat.completedCount.toFloat() / maxCompletedCount) * size.height * 0.9f
                     } else {
                         0f
                     }
-
                     val barHeight = normalizedHeight.coerceAtLeast(4.dp.toPx())
                     val xPos = index * barWidth + barWidth * 0.5f
 
@@ -791,7 +621,7 @@ fun BarChart(
                         cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
                     )
 
-                    // Draw count number above bar if there's space
+                    // Add value labels on top of bars
                     if (barHeight > 25.dp.toPx() && stat.completedCount > 0) {
                         drawContext.canvas.nativeCanvas.drawText(
                             stat.completedCount.toString(),
@@ -831,7 +661,6 @@ fun BarChart(
 @Composable
 fun CircleProgressIndicator(progress: Float, backgroundColor: Color, progressColor: Color) {
     Canvas(modifier = Modifier.size(180.dp)) {
-        // Background circle
         drawArc(
             color = backgroundColor,
             startAngle = 0f,
@@ -842,8 +671,6 @@ fun CircleProgressIndicator(progress: Float, backgroundColor: Color, progressCol
                 cap = StrokeCap.Round
             )
         )
-
-        // Progress arc
         drawArc(
             color = progressColor,
             startAngle = -90f,

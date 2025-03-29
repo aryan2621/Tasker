@@ -153,5 +153,5 @@ data class TaskFormState(
     val priority: TaskPriority = TaskPriority.MEDIUM,
     val recurrence: TaskRecurrence = TaskRecurrence.ONCE,
     val reminderDate: Date = Date(System.currentTimeMillis() + 3600000), // 1 hour from now
-    val durationMinutes: String = "30"
+    val durationMinutes: String = "10"
 )

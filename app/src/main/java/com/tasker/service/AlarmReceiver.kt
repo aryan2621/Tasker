@@ -164,6 +164,9 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
                 // Update task as accepted
                 taskRepository.updateTask(task.copy(isAccepted = true))
 
+                // Play accept music in background
+                MusicService.playAcceptMusic(context)
+
                 // Start the timer service
                 val timerIntent = Intent(context, TimerService::class.java).apply {
                     putExtra("taskId", taskId)
@@ -190,6 +193,9 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
             if (task != null) {
                 // Update task as rejected
                 taskRepository.updateTask(task.copy(isRejected = true))
+
+                // Play reject sound
+                MusicService.playRejectSound(context)
 
                 // Cancel the notification
                 val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

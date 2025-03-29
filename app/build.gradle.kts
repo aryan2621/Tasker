@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.tasker"
-        minSdk = 23
+        minSdk = 24
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -43,7 +43,7 @@ android {
 }
 
 dependencies {
-
+    implementation(libs.koin.androidx.compose.v342)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
@@ -67,6 +67,9 @@ dependencies {
     implementation(libs.androidx.material3)
 
     implementation(libs.play.services.location)
+
+    implementation(libs.play.services.auth)
+    implementation(libs.google.firebase.auth.ktx)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

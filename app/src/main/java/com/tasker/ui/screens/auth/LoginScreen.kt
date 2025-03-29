@@ -1,5 +1,8 @@
 package com.tasker.ui.screens.auth
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -21,19 +24,52 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tasker.R
+import com.tasker.service.GoogleAuthClient
 import com.tasker.ui.components.ButtonShape
 import com.tasker.ui.components.SocialLoginButton
 import com.tasker.ui.theme.FacebookBlue
 import com.tasker.ui.theme.GoogleRed
 import com.tasker.ui.theme.AppleBlack
+import android.util.Log
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import org.koin.androidx.compose.get
 
 @Composable
 fun LoginScreen(
     onNavigateToRegister: () -> Unit,
     onLoginSuccess: () -> Unit
 ) {
+    val googleAuthClient = get<GoogleAuthClient>()
+    val context = LocalContext.current
     val viewModel: AuthViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        Log.d("LoginScreen", "Got result: resultCode=${result.resultCode}")
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.let { intent ->
+                Log.d("LoginScreen", "Result OK, handling Google sign-in result")
+                viewModel.handleGoogleSignInResult(intent)
+            } ?: run {
+                Log.e("LoginScreen", "Result OK but intent data is null")
+                Toast.makeText(
+                    context,
+                    "Google Sign-In failed: No data returned",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        } else {
+            Log.e("LoginScreen", "Google Sign-In failed, resultCode: ${result.resultCode}")
+            Toast.makeText(
+                context,
+                "Google Sign-In was cancelled or failed",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -264,7 +300,9 @@ fun LoginScreen(
             ) {
                 SocialLoginButton(
                     icon = R.drawable.ic_google,
-                    onClick = { /* Google login */ },
+                    onClick = {
+                        launcher.launch(googleAuthClient.getSignInIntent())
+                    },
                     color = GoogleRed
                 )
 
